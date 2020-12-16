@@ -14,7 +14,6 @@
 # this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 include_directories(.. src/libfswatch)
-add_definitions(-DHAVE_CONFIG_H)
 
 set(LIB_SOURCE_FILES
         src/libfswatch/c/cevent.cpp
@@ -46,18 +45,33 @@ set(LIB_SOURCE_FILES
         src/libfswatch/c++/string/string_utils.cpp
         src/libfswatch/c++/string/string_utils.hpp
         src/libfswatch/gettext.h
-        src/libfswatch/gettext_defs.h
-        ../libfswatch_config.h)
+        src/libfswatch/gettext_defs.h)
+
+set(LIB_COMPILE_DEFINITIONS "")
+
+if (EXISTS ../libfswatch_config.h)
+    set(LIB_SOURCE_FILES
+            ${LIB_SOURCE_FILES}
+            ../libfswatch_config.h)
+
+    set(LIB_COMPILE_DEFINITIONS
+            ${LIB_COMPILE_DEFINITIONS}
+            -DHAVE_CONFIG_H)
+endif ()
 
 INCLUDE(CheckIncludeFiles)
 
-CHECK_INCLUDE_FILES(sys/inotify.h HAVE_SYS_INOTIFY)
+CHECK_INCLUDE_FILES(sys/inotify.h HAVE_SYS_INOTIFY_H)
 
 if (HAVE_SYS_INOTIFY_H)
+    message("***************has the inotify.h")
     set(LIB_SOURCE_FILES
             ${LIB_SOURCE_FILES}
             src/libfswatch/c++/inotify_monitor.cpp
             src/libfswatch/c++/inotify_monitor.hpp)
+    set(LIB_COMPILE_DEFINITIONS
+            ${LIB_COMPILE_DEFINITIONS}
+            -DHAVE_SYS_INOTIFY_H)
 endif (HAVE_SYS_INOTIFY_H)
 
 CHECK_INCLUDE_FILES(sys/event.h HAVE_SYS_EVENT_H)
@@ -81,6 +95,10 @@ endif (HAVE_PORT_H)
 if (WIN32)
     CHECK_INCLUDE_FILES(sys/cygwin.h HAVE_CYGWIN)
 
+    set(LIB_COMPILE_DEFINITIONS
+            ${LIB_COMPILE_DEFINITIONS}
+            -DHAVE_STRUCT_STAT_ST_MTIME)
+
     if (HAVE_CYGWIN)
         set(LIB_SOURCE_FILES
                 ${LIB_SOURCE_FILES}
@@ -98,10 +116,12 @@ if (WIN32)
                 src/libfswatch/c++/windows_monitor.hpp)
         add_definitions(-DHAVE_WINDOWS)
     endif (HAVE_CYGWIN)
-endif (WIN32)
-
-if (APPLE)
+elseif (APPLE)
     CHECK_INCLUDE_FILES(CoreServices/CoreServices.h HAVE_FSEVENTS_FILE_EVENTS)
+
+    set(LIB_COMPILE_DEFINITIONS
+            ${LIB_COMPILE_DEFINITIONS}
+            -DHAVE_STRUCT_STAT_ST_MTIME)
 
     if (HAVE_FSEVENTS_FILE_EVENTS)
         find_library(CORESERVICES_LIBRARY CoreServices)
@@ -113,8 +133,15 @@ if (APPLE)
                 src/libfswatch/c++/fsevents_monitor.hpp)
 
     endif (HAVE_FSEVENTS_FILE_EVENTS)
-endif (APPLE)
+
+    set(LIB_COMPILE_DEFINITIONS -DHAVE_STRUCT_STAT_ST_MTIMESPEC)
+else () # Other Unix I suppose
+    set(LIB_COMPILE_DEFINITIONS
+            ${LIB_COMPILE_DEFINITIONS}
+            -DHAVE_STRUCT_STAT_ST_MTIME)
+endif ()
 
 add_library(libfswatch ${LIB_SOURCE_FILES})
 target_include_directories(libfswatch PUBLIC src)
 target_link_libraries(libfswatch ${CORESERVICES_LIBRARY})
+target_compile_definitions(libfswatch PRIVATE ${LIB_COMPILE_DEFINITIONS})
