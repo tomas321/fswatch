@@ -337,10 +337,10 @@ namespace fsw
   {
     if (!allow_overflow) throw libfsw_exception(_("Event queue overflow."));
 
-    time_t curr_time;
-    time(&curr_time);
+    timeval tv;
+    gettimeofday(&tv, NULL);
 
-    notify_events({{path, curr_time, {fsw_event_flag::Overflow}}});
+    notify_events({{path, tv.tv_sec, tv.tv_usec, {fsw_event_flag::Overflow}}});
   }
 
   void monitor::notify_events(const std::vector<event>& events) const
@@ -367,6 +367,7 @@ namespace fsw
 
       filtered_events.emplace_back(event.get_path(),
                                    event.get_time(),
+                                   event.get_utime(),
                                    filtered_flags);
     }
 

@@ -100,7 +100,7 @@ namespace fsw
 
       if (!flags.empty())
       {
-        events.emplace_back(path, curr_time, flags);
+        events.emplace_back(path, curr_time, curr_utime, flags);
       }
 
       previous_data->tracked_files.erase(path);
@@ -109,7 +109,7 @@ namespace fsw
     {
       vector<fsw_event_flag> flags;
       flags.push_back(fsw_event_flag::Created);
-      events.emplace_back(path, curr_time, flags);
+      events.emplace_back(path, curr_time, curr_utime, flags);
     }
 
     return true;
@@ -158,7 +158,7 @@ namespace fsw
 
     for (auto& removed : previous_data->tracked_files)
     {
-      events.emplace_back(removed.first, curr_time, flags);
+      events.emplace_back(removed.first, curr_time, curr_utime, flags);
     }
   }
 
@@ -208,7 +208,10 @@ namespace fsw
 
       sleep(latency < MIN_POLL_LATENCY ? MIN_POLL_LATENCY : latency);
 
-      time(&curr_time);
+      timeval tv;
+      gettimeofday(&tv, NULL);
+      curr_time = tv.tv_sec;
+      curr_utime = tv.tv_usec;
 
       collect_data();
 

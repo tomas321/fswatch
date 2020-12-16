@@ -67,6 +67,7 @@ namespace fsw
     fsw_hash_set<int> watches_to_remove;
     std::vector<std::string> paths_to_rescan;
     time_t curr_time;
+    time_t curr_utime;
   };
 
   static const unsigned int BUFFER_SIZE = (10 * ((sizeof(struct inotify_event)) + NAME_MAX + 1));
@@ -203,7 +204,7 @@ namespace fsw
 
     if (flags.size())
     {
-      impl->events.push_back({impl->wd_to_path[event->wd], impl->curr_time, flags});
+      impl->events.push_back({impl->wd_to_path[event->wd], impl->curr_time, impl->curr_utime, flags});
     }
 
     // If a new directory has been created, it should be rescanned if the
@@ -248,7 +249,7 @@ namespace fsw
 
     if (flags.size())
     {
-      impl->events.push_back({filename_stream.str(), impl->curr_time, flags});
+      impl->events.push_back({filename_stream.str(), impl->curr_time, impl->curr_utime, flags});
     }
 
     {
@@ -421,8 +422,8 @@ namespace fsw
 
       if (rv == -1)
       {
-	fsw_log_perror("select");
-	continue;
+        fsw_log_perror("select");
+        continue;
       }
 
       // In case of read timeout just repeat the loop.
@@ -449,21 +450,26 @@ namespace fsw
         throw libfsw_exception(_("read() on inotify descriptor returned -1."));
       }
 
-      time(&impl->curr_time);
+      struct timeval tv;
 
       for (char *p = buffer; p < buffer + record_num;)
       {
         struct inotify_event *event = reinterpret_cast<struct inotify_event *> (p);
 
+        gettimeofday(&tv, NULL);
+
+        impl->curr_time = tv.tv_sec;
+        impl->curr_utime = tv.tv_usec;
+
+        if (impl->events.size())
+        {
+          notify_events(impl->events);
+          impl->events.clear();
+        }
+
         preprocess_event(event);
 
         p += (sizeof(struct inotify_event)) + event->len;
-      }
-
-      if (impl->events.size())
-      {
-        notify_events(impl->events);
-        impl->events.clear();
       }
 
       sleep(latency);

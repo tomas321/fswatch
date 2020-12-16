@@ -18,6 +18,7 @@
 #endif
 #include "gettext.h"
 #include "fswatch.hpp"
+#include <unistd.h> // optarg
 #include <iostream>
 #include <string>
 #include <exception>
@@ -338,6 +339,7 @@ static void print_event_path(const event& evt)
 static void print_event_timestamp(const event& evt)
 {
   const time_t& evt_time = evt.get_time();
+  const time_t& evt_utime = evt.get_utime();
 
   char time_format_buffer[TIME_FORMAT_BUFF_SIZE];
   struct tm *tm_time = uflag ? gmtime(&evt_time) : localtime(&evt_time);
@@ -349,7 +351,8 @@ static void print_event_timestamp(const event& evt)
              tm_time) ? std::string(time_format_buffer) : std::string(
       _("<date format error>"));
 
-  std::cout << date;
+  // TODO: parametrize the usecs
+  printf("%s.%ld",time_format_buffer,evt_utime);
 }
 
 static void print_event_flags(const event& evt)
@@ -768,7 +771,7 @@ static int printf_event_validate_format(const std::string& fmt)
     };
 
   const std::vector<fsw_event_flag> flags;
-  const event empty("", 0, flags);
+  const event empty("", 0, 0, flags);
   std::ostream noop_stream(nullptr);
 
   return printf_event(fmt, empty, noop_callbacks, noop_stream);
