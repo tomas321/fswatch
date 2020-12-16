@@ -1,7 +1,7 @@
 set(SOURCE_FILES
-        fswatch.cpp
-        fswatch.hpp
-        gettext.h)
+        src/fswatch.cpp
+        src/fswatch.hpp
+        src/gettext.h)
 
 # We'll need one global config file for both cmake and automake :P
 set(COMPILE_DEFINITIONS
@@ -16,7 +16,7 @@ set(COMPILE_DEFINITIONS
 if (EXISTS ../libfswatch_config.h)
     set(SOURCE_FILES
             ${SOURCE_FILES}
-            ../../libfswatch_config.h)
+            ../libfswatch_config.h)
 
     set(COMPILE_DEFINITIONS
             ${COMPILE_DEFINITIONS}
@@ -26,6 +26,6 @@ endif ()
 find_package (Threads REQUIRED)
 
 add_executable(fswatch ${SOURCE_FILES})
-target_include_directories(fswatch PUBLIC ../.. .)
+target_include_directories(fswatch PUBLIC . src)
 target_link_libraries(fswatch LINK_PUBLIC libfswatch ${CMAKE_THREAD_LIBS_INIT})
 target_compile_definitions(fswatch PRIVATE ${COMPILE_DEFINITIONS})
