@@ -80,6 +80,7 @@ static const unsigned int TIME_FORMAT_BUFF_SIZE = 128;
 static monitor *active_monitor = nullptr;
 static std::vector<monitor_filter> filters;
 static std::vector<fsw_event_type_filter> event_filters;
+static std::vector<fsw_event_type_filter> exclude_event_filters;
 static std::vector<std::string> filter_files;
 static bool _0flag = false;
 static bool _1flag = false;
@@ -117,10 +118,11 @@ static const int OPT_BATCH_MARKER = 128;
 static const int OPT_FORMAT = 129;
 static const int OPT_EVENT_FLAG_SEPARATOR = 130;
 static const int OPT_EVENT_TYPE = 131;
-static const int OPT_ALLOW_OVERFLOW = 132;
-static const int OPT_MONITOR_PROPERTY = 133;
-static const int OPT_FIRE_IDLE_EVENTS = 134;
-static const int OPT_FILTER_FROM = 135;
+static const int OPT_EXCLUDE_EVENT_TYPE = 132;
+static const int OPT_ALLOW_OVERFLOW = 133;
+static const int OPT_MONITOR_PROPERTY = 134;
+static const int OPT_FIRE_IDLE_EVENTS = 135;
+static const int OPT_FILTER_FROM = 136;
 
 static void list_monitor_types(std::ostream& stream)
 {
@@ -178,6 +180,7 @@ static void usage(std::ostream& stream)
   stream << " -t, --timestamp       " << _("Print the event timestamp.\n");
   stream << " -u, --utc-time        " << _("Print the event time as UTC time.\n");
   stream << " -x, --event-flags     " << _("Print the event flags.\n");
+  stream << "     --ex-event        " << _("Filter the event without specified type. (exclude setting)\n");
   stream << "     --event=TYPE      " << _("Filter the event by the specified type.\n");
   stream << "     --event-flag-separator=STRING\n";
   stream << "                       " << _("Print event flags using the specified separator.") << "\n";
@@ -238,6 +241,46 @@ namespace
   {
     FSW_ELOG(_("Executing termination handler.\n"));
     close_monitor();
+  }
+}
+
+static bool parse_exclude_event_bitmask(const char *optarg)
+{
+  try
+  {
+    auto bitmask = std::stoul(optarg, nullptr, 10);
+    short pos = 0;
+
+    for (auto& item : FSW_ALL_EVENT_FLAGS)
+    {
+      if ((bitmask & item) == item)
+      {
+        exclude_event_filters.push_back({item});
+      }
+      ++pos;
+    }
+
+    return true;
+  }
+  catch (std::invalid_argument& ex)
+  {
+    return false;
+  }
+}
+
+static bool parse_exclude_event_filter(const char *optarg)
+{
+  if (parse_exclude_event_bitmask(optarg)) return true;
+
+  try
+  {
+    exclude_event_filters.push_back({event::get_event_flag_by_name(optarg)});
+    return true;
+  }
+  catch (libfsw_exception& ex)
+  {
+    std::cerr << ex.what() << std::endl;
+    return false;
   }
 }
 
@@ -512,6 +555,7 @@ static void parse_opts(int argc, char **argv)
     {"allow-overflow",       no_argument,       nullptr,       OPT_ALLOW_OVERFLOW},
     {"batch-marker",         optional_argument, nullptr,       OPT_BATCH_MARKER},
     {"directories",          no_argument,       nullptr,       'd'},
+    {"ex-event",             required_argument, nullptr,       OPT_EXCLUDE_EVENT_TYPE},
     {"event",                required_argument, nullptr,       OPT_EVENT_TYPE},
     {"event-flags",          no_argument,       nullptr,       'x'},
     {"event-flag-separator", required_argument, nullptr,       OPT_EVENT_FLAG_SEPARATOR},
@@ -658,6 +702,13 @@ static void parse_opts(int argc, char **argv)
 
     case OPT_EVENT_FLAG_SEPARATOR:
       event_flag_separator = optarg;
+      break;
+
+    case OPT_EXCLUDE_EVENT_TYPE:
+      if (!parse_exclude_event_filter(optarg))
+      {
+        exit(FSW_ERR_UNKNOWN_VALUE);
+      }
       break;
 
     case OPT_EVENT_TYPE:
@@ -833,6 +884,29 @@ static int printf_event(const std::string& fmt,
   return 0;
 }
 
+void check_for_excluded_filters()
+{
+  bool found;
+
+  if (event_filters.empty()) {
+    for (auto &flag : FSW_ALL_EVENT_FLAGS) {
+      found = false;
+      for (auto &exclude_flag : exclude_event_filters) {
+        if (exclude_flag.flag == flag) {
+//          std::cerr << _("excluding a flag from filters - ") << event::get_event_flag_name(flag) <<  std::endl;
+          found = true;
+          break;
+        }
+      }
+      if (!found) {
+        event_filters.push_back({flag});
+      }
+    }
+  }
+
+  if (event_filters.empty()) std::cerr << _("fuvk") << std::endl;
+}
+
 int main(int argc, char **argv)
 {
   // Trigger gettext operations
@@ -843,6 +917,8 @@ int main(int argc, char **argv)
 #endif
 
   parse_opts(argc, argv);
+
+  check_for_excluded_filters();  // fill in the event_filters (if empty) with all but excluded flags
 
   // validate options
   if (optind == argc)
