@@ -39,6 +39,7 @@
 #  include <atomic>
 #  include <chrono>
 #  include <map>
+#  include <sys/time.h>
 #  include "event.hpp"
 #  include "../c/cmonitor.h"
 

@@ -91,6 +91,7 @@ namespace fsw
 
     std::vector<event> events;
     time_t curr_time;
+    time_t curr_utime;
   };
 }
 

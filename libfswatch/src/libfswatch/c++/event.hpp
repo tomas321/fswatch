@@ -54,7 +54,7 @@ namespace fsw
      * @param evt_time The time the event was raised.
      * @param flags The vector of flags specifying the type of the event.
      */
-    event(std::string path, time_t evt_time, std::vector<fsw_event_flag> flags);
+    event(std::string path, time_t evt_time, time_t evt_utime, std::vector<fsw_event_flag> flags);
 
     /**
      * @brief Destructs an event.
@@ -76,6 +76,13 @@ namespace fsw
      * @return The time of the event.
      */
     time_t get_time() const;
+
+    /**
+     * @brief Returns the utime of the event.
+     *
+     * @return The utime of the event.
+     */
+    time_t get_utime() const;
 
     /**
      * @brief Returns the flags of the event.
@@ -105,6 +112,7 @@ namespace fsw
   private:
     std::string path;
     time_t evt_time;
+    time_t evt_utime;
     std::vector<fsw_event_flag> evt_flags;
   };
 
